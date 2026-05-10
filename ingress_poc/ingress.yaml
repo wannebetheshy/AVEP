@@ -1,0 +1,67 @@
+# 1. Ингресс для корневого домена (avep.com)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-site-ingress
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: avep.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dummy-auth-svc
+            port:
+              number: 80
+---
+# 2. Ингресс для Графаны
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+  annotations:
+    # Жестко указали порт :80 для Nginx
+    nginx.ingress.kubernetes.io/auth-url: "http://dummy-auth-svc.default.svc.cluster.local:80/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "http://avep.com/login"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: grafana.avep.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kube-prometheus-stack-grafana
+            port:
+              number: 80
+---
+# 3. Ингресс для K8s Dashboard
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k8s-dashboard-ingress
+  namespace: kubernetes-dashboard
+  annotations:
+    # Жестко указали порт :80 для Nginx
+    nginx.ingress.kubernetes.io/auth-url: "http://dummy-auth-svc.default.svc.cluster.local:80/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "http://avep.com/login"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: k8s.avep.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: kubernetes-dashboard
+            port:
+              number: 80

@@ -14,9 +14,11 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile.dev
     env_file:
       - ./.env
+    ports:
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,12 +28,16 @@ services:
       timeout: 3s
       retries: 10
 
-  nginx:
+  frontend:
     build:
-      context: .
-      dockerfile: nginx/Dockerfile
+      context: ./frontend
+    env_file:
+      - ./.env
     ports:
-      - "80:80"
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       backend:
         condition: service_healthy

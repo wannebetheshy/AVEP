@@ -1,0 +1,16 @@
+.git
+.gitignore
+.vscode
+**/__pycache__
+**/*.py[codz]
+**/*.log
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.venv
+**/node_modules
+**/dist
+**/.vite
+**/coverage
+backend/.env
+frontend/.env

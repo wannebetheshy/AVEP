@@ -3,7 +3,7 @@ export type Role = "user" | "admin";
 export interface User {
   id: string;
   username: string;
-  email: string;
+  email: string | null;
   role: Role;
 }
 
@@ -16,7 +16,7 @@ export interface Task {
   id: string;
   name: string;
   description: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
+  difficulty: "Easy" | "Medium" | "Hard";
   category?: string;
 }
 

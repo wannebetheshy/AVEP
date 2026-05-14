@@ -7,6 +7,7 @@ from app.models.schemas import (
     AdminLoginRequest,
     AuthSuccessResponse,
     LoginRequest,
+    MessageResponse,
     RegisterRequest,
     RegisterResponse,
     UserResponse,
@@ -23,7 +24,7 @@ from app.services.auth_service import (
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
 
-@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=AuthSuccessResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest):
     existing_user = await User.filter(username=payload.username).first()
     if existing_user:
@@ -39,7 +40,16 @@ async def register(payload: RegisterRequest):
         password=hash_password(payload.password),
     )
 
-    return RegisterResponse(user_id=str(user.id))
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    return AuthSuccessResponse(
+        token=token,
+        user=UserResponse(
+            id=str(user.id),
+            username=user.username,
+            email=user.email,
+            role=user.role,
+        ),
+    )
 
 
 @router.post("/login", response_model=AuthSuccessResponse)
@@ -79,4 +89,30 @@ async def verify(token_payload: dict = Depends(require_token)):
     if not user_id or not role:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    return VerifyTokenResponse(user_id=user_id, role=role)
+    if role == ROLE_ADMIN:
+        return VerifyTokenResponse(
+            user=UserResponse(
+                id="admin",
+                username="admin",
+                email=None,
+                role=ROLE_ADMIN,
+            )
+        )
+
+    user = await User.filter(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    return VerifyTokenResponse(
+        user=UserResponse(
+            id=str(user.id),
+            username=user.username,
+            email=user.email,
+            role=user.role,
+        )
+    )
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout():
+    return MessageResponse(message="Logged out successfully")

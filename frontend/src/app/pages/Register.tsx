@@ -1,5 +1,5 @@
 import type { ChangeEvent, FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Terminal } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,8 +19,16 @@ export default function Register() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { registerUser } = useAuth();
+  const { registerUser, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) {
+      return;
+    }
+
+    navigate("/dashboard", { replace: true });
+  }, [isAuthenticated, isLoading, navigate]);
 
   const updateField =
     (field: keyof typeof INITIAL_FORM) =>

@@ -1,120 +1,100 @@
 import type { Instance } from "../domain/types";
-import { MOCK_DELAY_MS } from "./constants";
+import { API_ENDPOINTS, ApiClient } from "./apiClient";
 import { logEvents } from "./logEvents";
 import { logger } from "./logger";
-import {
-  buildInstanceUrl,
-  getInstanceByUser,
-  getInstanceConfig,
-  getTasks,
-  removeInstanceForUser,
-  setInstanceForUser,
-  sleep,
-  toInstance,
-  generateId,
-} from "./inMemoryStore";
+
+const parseInstance = (data: {
+  uuid: string;
+  task_id: string;
+  task_name: string;
+  status: string;
+  url: string;
+  created_at: string;
+  expires_at: string;
+  time_remaining_ms: number;
+  extensions_count?: number;
+}): Instance => ({
+  uuid: data.uuid,
+  taskId: data.task_id,
+  taskName: data.task_name,
+  status: data.status === "running" ? "active" : (data.status as Instance["status"]),
+  url: data.url,
+  createdAt: new Date(data.created_at),
+  expiresAt: new Date(data.expires_at),
+  timeRemainingMs: data.time_remaining_ms,
+  extensionsCount: data.extensions_count ?? 0,
+});
 
 export const getInstanceStatus = async (
   userId: string,
 ): Promise<Instance | null> => {
-  await sleep(MOCK_DELAY_MS);
+  const response = await ApiClient.get<{
+    status: string;
+    has_active_instance: boolean;
+    instance: Parameters<typeof parseInstance>[0] | null;
+  }>(API_ENDPOINTS.instanceStatus);
 
-  const record = getInstanceByUser(userId);
-  const instance = record ? toInstance(record) : null;
-  logger.info(logEvents.instanceStatus, { userId, active: !!instance });
-  return instance;
+  logger.info(logEvents.instanceStatus, { userId, active: response.has_active_instance });
+  return response.has_active_instance && response.instance ? parseInstance(response.instance) : null;
 };
 
-export const deployInstance = async (userId: string, taskId: string) => {
+export const deployInstance = async (
+  userId: string,
+  taskId: string,
+): Promise<Instance> => {
   logger.info(logEvents.instanceDeployAttempt, { userId, taskId });
-  const existing = getInstanceByUser(userId);
-  if (existing) {
-    logger.warn(logEvents.instanceDeployBlocked, { userId, taskId });
-    throw new Error("Only one instance can run at a time");
-  }
 
-  const task = getTasks().find((item) => item.id === taskId);
-  if (!task) {
-    logger.warn(logEvents.instanceDeployMissingTask, { userId, taskId });
-    throw new Error("Task not found");
-  }
+  const response = await ApiClient.post<{
+    status: string;
+    instance: Parameters<typeof parseInstance>[0];
+  }>(API_ENDPOINTS.instanceDeploy, {
+    task_id: taskId,
+  });
 
-  const now = new Date();
-  const uuid = generateId();
-  const record = {
-    uuid,
-    taskId: task.id,
-    taskName: task.name,
-    status: "deploying" as const,
-    url: buildInstanceUrl(uuid),
-    createdAt: now,
-    expiresAt: new Date(now.getTime() + getInstanceConfig().instanceLifetimeMs),
-    extensionsCount: 0,
-  };
+  const instance = parseInstance(response.instance);
 
-  setInstanceForUser(userId, record);
-
-  await sleep(MOCK_DELAY_MS);
-
-  const activeRecord = {
-    ...record,
-    status: "active" as const,
-  };
-
-  setInstanceForUser(userId, activeRecord);
   logger.info(logEvents.instanceDeploySuccess, {
     userId,
     taskId,
-    instanceId: activeRecord.uuid,
+    instanceId: instance.uuid,
   });
-  return toInstance(activeRecord);
+
+  return instance;
 };
 
-export const extendInstance = async (userId: string) => {
-  await sleep(MOCK_DELAY_MS);
+export const extendInstance = async (userId: string): Promise<Instance> => {
   logger.info(logEvents.instanceExtendAttempt, { userId });
 
-  const record = getInstanceByUser(userId);
-  if (!record) {
-    logger.warn(logEvents.instanceExtendMissing, { userId });
-    throw new Error("No active instance found");
-  }
+  const response = await ApiClient.post<{
+    status: string;
+    instance: Parameters<typeof parseInstance>[0];
+    new_expires_at: string;
+    new_time_remaining_ms: number;
+  }>(API_ENDPOINTS.instanceExtend, {});
 
-  const remaining = record.expiresAt.getTime() - Date.now();
-  if (remaining >= getInstanceConfig().extensionThresholdMs) {
-    logger.warn(logEvents.instanceExtendTooEarly, { userId });
-    throw new Error("Extension is only available in the last 15 minutes");
-  }
+  const instance = parseInstance(response.instance);
 
-  const updatedRecord = {
-    ...record,
-    expiresAt: new Date(record.expiresAt.getTime() + getInstanceConfig().extensionMs),
-    extensionsCount: record.extensionsCount + 1,
-  };
-
-  setInstanceForUser(userId, updatedRecord);
   logger.info(logEvents.instanceExtendSuccess, {
     userId,
-    instanceId: updatedRecord.uuid,
-    extensionsCount: updatedRecord.extensionsCount,
+    instanceId: instance.uuid,
   });
-  return toInstance(updatedRecord);
+
+  return instance;
 };
 
-export const terminateInstance = async (userId: string) => {
-  await sleep(MOCK_DELAY_MS);
+export const terminateInstance = async (userId: string): Promise<string> => {
   logger.info(logEvents.instanceTerminateAttempt, { userId });
 
-  const record = getInstanceByUser(userId);
-  if (!record) {
-    logger.warn(logEvents.instanceTerminateMissing, { userId });
-    throw new Error("No active instance found");
-  }
+  const response = await ApiClient.delete<{
+    status: string;
+    message: string;
+    instance_uuid: string;
+  }>(API_ENDPOINTS.instanceTerminate);
 
-  removeInstanceForUser(userId);
   logger.info(logEvents.instanceTerminateSuccess, {
     userId,
-    instanceId: record.uuid,
+    instanceId: response.instance_uuid,
   });
-  return record.uuid;
+
+  return response.instance_uuid;
 };

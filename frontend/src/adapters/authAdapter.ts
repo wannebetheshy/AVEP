@@ -1,128 +1,122 @@
 import type { Session, User } from "../domain/types";
-import { MOCK_DELAY_MS } from "./constants";
+import { API_ENDPOINTS, ApiClient } from "./apiClient";
 import { logEvents } from "./logEvents";
 import { logger } from "./logger";
-import { addUser, generateId, getUsers, sleep } from "./inMemoryStore";
-import {
-  clearStoredSession,
-  getStoredSession,
-  setStoredSession,
-} from "./storage";
 
-const buildSession = (user: User): Session => ({
-  token: `token_${user.id}`,
-  user,
+const buildSession = (data: {
+  token: string;
+  user: User;
+}): Session => ({
+  token: data.token,
+  user: data.user,
 });
 
-export const readSession = () => getStoredSession();
+export const readSession = async (): Promise<Session | null> => {
+  const token = ApiClient.getToken();
+  if (!token) {
+    return null;
+  }
 
-export const loginUser = async (identity: string, password: string) => {
-  await sleep(MOCK_DELAY_MS);
+  try {
+    const response = await ApiClient.post<{
+      status: string;
+      valid: boolean;
+      user: User;
+    }>(API_ENDPOINTS.verify, {});
 
-  const trimmedIdentity = identity.trim();
-  logger.info(logEvents.authLoginAttempt, { identity: trimmedIdentity });
-  logger.debug(logEvents.authLoginCredentials, {
-    identity: trimmedIdentity,
+    if (!response.valid) {
+      ApiClient.clearToken();
+      return null;
+    }
+
+    return buildSession({ token, user: response.user });
+  } catch {
+    ApiClient.clearToken();
+    return null;
+  }
+};
+
+export const loginUser = async (
+  identity: string,
+  password: string,
+): Promise<Session> => {
+  logger.info(logEvents.authLoginAttempt, { identity });
+
+  const response = await ApiClient.post<{
+    status: string;
+    token: string;
+    user: User;
+  }>(API_ENDPOINTS.login, {
+    login: identity,
     password,
   });
-  const userRecord = getUsers().find(
-    (user) =>
-      user.username === trimmedIdentity ||
-      user.email === trimmedIdentity,
-  );
 
-  if (!userRecord || userRecord.password !== password) {
-    logger.warn(logEvents.authLoginFailed, { identity: trimmedIdentity });
-    throw new Error("Invalid credentials");
-  }
+  ApiClient.setToken(response.token);
+  logger.info(logEvents.authLoginSuccess, { userId: response.user.id });
 
-  if (userRecord.role !== "user") {
-    logger.warn(logEvents.authLoginRoleMismatch, { identity: trimmedIdentity });
-    throw new Error("Use admin login for administrative access");
-  }
-
-  const session = buildSession(userRecord);
-  setStoredSession(session);
-  logger.info(logEvents.authLoginSuccess, { userId: userRecord.id });
-  return session;
+  return buildSession({
+    token: response.token,
+    user: response.user,
+  });
 };
 
 export const registerUser = async (
   email: string,
   username: string,
   password: string,
-) => {
-  await sleep(MOCK_DELAY_MS);
+): Promise<Session> => {
+  logger.info(logEvents.authRegisterAttempt, { email, username });
 
-  const trimmedEmail = email.trim();
-  const trimmedUsername = username.trim();
-  logger.info(logEvents.authRegisterAttempt, {
-    email: trimmedEmail,
-    username: trimmedUsername,
-  });
-  logger.debug(logEvents.authRegisterCredentials, {
-    email: trimmedEmail,
-    username: trimmedUsername,
+  const response = await ApiClient.post<{
+    status: string;
+    token: string;
+    user: User;
+  }>(API_ENDPOINTS.register, {
+    username,
+    email,
     password,
   });
 
-  if (password.length < 8) {
-    throw new Error("Password must be at least 8 characters");
-  }
+  ApiClient.setToken(response.token);
+  logger.info(logEvents.authRegisterSuccess, { userId: response.user.id });
 
-  const alreadyExists = getUsers().some(
-    (user) => user.email === trimmedEmail || user.username === trimmedUsername,
-  );
-
-  if (alreadyExists) {
-    logger.warn(logEvents.authRegisterDuplicate, {
-      email: trimmedEmail,
-      username: trimmedUsername,
-    });
-    throw new Error("User already exists");
-  }
-
-  const user: User = {
-    id: generateId(),
-    username: trimmedUsername,
-    email: trimmedEmail,
-    role: "user",
-  };
-
-  addUser({ ...user, password });
-
-  const session = buildSession(user);
-  setStoredSession(session);
-  logger.info(logEvents.authRegisterSuccess, { userId: user.id });
-  return session;
+  return buildSession({
+    token: response.token,
+    user: response.user,
+  });
 };
 
-export const loginAdmin = async (username: string, password: string) => {
-  await sleep(MOCK_DELAY_MS);
+export const loginAdmin = async (
+  username: string,
+  password: string,
+): Promise<Session> => {
+  logger.info(logEvents.authAdminLoginAttempt, { username });
 
-  const trimmedUsername = username.trim();
-  logger.info(logEvents.authAdminLoginAttempt, { username: trimmedUsername });
-  logger.debug(logEvents.authAdminLoginCredentials, {
-    username: trimmedUsername,
+  const response = await ApiClient.post<{
+    status: string;
+    token: string;
+    user: User;
+  }>(API_ENDPOINTS.adminLogin, {
+    username,
     password,
   });
-  const adminRecord = getUsers().find(
-    (user) => user.role === "admin" && user.username === trimmedUsername,
-  );
 
-  if (!adminRecord || adminRecord.password !== password) {
-    logger.warn(logEvents.authAdminLoginFailed, { username: trimmedUsername });
-    throw new Error("Invalid admin credentials");
-  }
+  ApiClient.setToken(response.token);
+  logger.info(logEvents.authAdminLoginSuccess, { userId: response.user.id });
 
-  const session = buildSession(adminRecord);
-  setStoredSession(session);
-  logger.info(logEvents.authAdminLoginSuccess, { userId: adminRecord.id });
-  return session;
+  return buildSession({
+    token: response.token,
+    user: response.user,
+  });
 };
 
-export const logoutUser = async () => {
-  await sleep(MOCK_DELAY_MS);
-  clearStoredSession();
+export const logoutUser = async (): Promise<void> => {
+  try {
+    await ApiClient.post(API_ENDPOINTS.logout);
+  } catch {
+    // Logout endpoint may not exist yet, but we still clear the token
+  }
+
+  ApiClient.clearToken();
   logger.info(logEvents.authLogout);
 };

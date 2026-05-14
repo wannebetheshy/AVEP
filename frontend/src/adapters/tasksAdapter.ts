@@ -1,12 +1,16 @@
 import type { Task } from "../domain/types";
-import { MOCK_DELAY_MS } from "./constants";
+import { API_ENDPOINTS, ApiClient } from "./apiClient";
 import { logEvents } from "./logEvents";
 import { logger } from "./logger";
-import { getTasks, sleep } from "./inMemoryStore";
 
-export const listAvailableTasks = async (): Promise<Task[]> => {
-  await sleep(MOCK_DELAY_MS);
-  const tasks = getTasks();
-  logger.info(logEvents.tasksList, { count: tasks.length });
-  return tasks;
+export const listTasks = async (): Promise<Task[]> => {
+  const response = await ApiClient.get<{
+    status: string;
+    tasks: Task[];
+  }>(API_ENDPOINTS.tasks);
+
+  logger.info(logEvents.tasksList, { count: response.tasks.length });
+  return response.tasks;
 };
+
+export const listAvailableTasks = listTasks;

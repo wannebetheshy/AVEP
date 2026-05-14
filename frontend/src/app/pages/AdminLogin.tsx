@@ -27,8 +27,8 @@ export default function AdminLogin() {
 
     navigate(isAdmin ? "/admin" : "/dashboard", { replace: true });
   }, [isAuthenticated, isAdmin, isLoading, navigate]);
-  const adminUsername = import.meta.env.VITE_ADMIN_USERNAME;
-  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD;
+  const adminUsername = import.meta.env.VITE_ADMIN_USERNAME ?? "admin";
+  const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD ?? "change-me";
 
   const updateField =
     (field: keyof typeof INITIAL_FORM) =>

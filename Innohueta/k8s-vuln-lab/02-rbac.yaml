@@ -1,0 +1,72 @@
+# Сервисные аккаунты без автомонтирования токена API — снижает риск «захвата кластера»
+# при компрометации приложения внутри пода.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: juice-shop
+  namespace: vuln-lab
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dvwa
+  namespace: vuln-lab
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: webgoat
+  namespace: vuln-lab
+automountServiceAccountToken: false
+---
+# Пустая Role — привязка без прав; при необходимости добавьте сюда только явно нужные verbs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lab-no-privileges
+  namespace: vuln-lab
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: juice-shop-no-privileges
+  namespace: vuln-lab
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: lab-no-privileges
+subjects:
+  - kind: ServiceAccount
+    name: juice-shop
+    namespace: vuln-lab
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dvwa-no-privileges
+  namespace: vuln-lab
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: lab-no-privileges
+subjects:
+  - kind: ServiceAccount
+    name: dvwa
+    namespace: vuln-lab
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: webgoat-no-privileges
+  namespace: vuln-lab
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: lab-no-privileges
+subjects:
+  - kind: ServiceAccount
+    name: webgoat
+    namespace: vuln-lab

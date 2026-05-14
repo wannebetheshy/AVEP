@@ -1,0 +1,20 @@
+# Шаблон: разрешить вход только с ingress-nginx (подставьте namespace/labels своего контроллера).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ingress-only-from-controller
+  namespace: CHANGE_ME_NS
+spec:
+  podSelector:
+    matchLabels:
+      app: CHANGE_ME_APP
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8090

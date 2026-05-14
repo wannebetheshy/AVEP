@@ -13,7 +13,7 @@ export function ProtectedRoute({
   children,
   requireAdmin = false,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -22,6 +22,10 @@ export function ProtectedRoute({
       toast.error("Admin access required");
     }
   }, [isAuthenticated, isAdmin, requireAdmin]);
+
+  if (isLoading) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to={requireAdmin ? "/admin-login" : "/login"} replace />;

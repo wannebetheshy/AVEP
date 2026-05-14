@@ -6,7 +6,7 @@ COPY frontend/package*.json ./frontend/
 RUN cd frontend && npm ci
 
 COPY frontend ./frontend
-RUN cd frontend && npm run build
+RUN cd frontend && VITE_API_URL=/api/v1 npm run build
 
 FROM nginx:1.27-alpine
 

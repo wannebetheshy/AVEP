@@ -26,6 +26,7 @@ interface AuthContextValue {
   instance: Instance | null;
   isAdmin: boolean;
   isAuthenticated: boolean;
+  isLoading: boolean;
   loginUser: (identity: string, password: string) => Promise<void>;
   registerUser: (
     email: string,
@@ -43,11 +44,40 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(() => readSession());
+  const [session, setSession] = useState<Session | null>(null);
   const [instance, setInstance] = useState<Instance | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!session;
   const isAdmin = session?.user.role === "admin";
+
+  // Restore session on mount
+  useEffect(() => {
+    let active = true;
+
+    const restoreSession = async () => {
+      try {
+        const restoredSession = await readSession();
+        if (active) {
+          setSession(restoredSession);
+        }
+      } catch {
+        if (active) {
+          setSession(null);
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const refreshInstance = useCallback(async () => {
     if (!session) {
@@ -138,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       instance,
       isAdmin,
       isAuthenticated,
+      isLoading,
       loginUser: handleLoginUser,
       registerUser: handleRegisterUser,
       loginAdmin: handleLoginAdmin,
@@ -152,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       instance,
       isAdmin,
       isAuthenticated,
+      isLoading,
       handleLoginUser,
       handleRegisterUser,
       handleLoginAdmin,

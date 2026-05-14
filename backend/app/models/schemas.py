@@ -41,8 +41,7 @@ class AuthSuccessResponse(BaseModel):
 class VerifyTokenResponse(BaseModel):
     status: str = "success"
     valid: bool = True
-    user_id: str
-    role: str
+    user: UserResponse
 
 
 class ErrorResponse(BaseModel):

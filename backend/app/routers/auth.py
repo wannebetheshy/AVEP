@@ -7,6 +7,7 @@ from app.models.schemas import (
     AdminLoginRequest,
     AuthSuccessResponse,
     LoginRequest,
+    MessageResponse,
     RegisterRequest,
     RegisterResponse,
     UserResponse,
@@ -110,3 +111,8 @@ async def verify(token_payload: dict = Depends(require_token)):
             role=user.role,
         )
     )
+
+
+@router.post("/logout", response_model=MessageResponse)
+async def logout():
+    return MessageResponse(message="Logged out successfully")

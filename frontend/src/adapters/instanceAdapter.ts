@@ -1,13 +1,41 @@
 import type { Instance } from "../domain/types";
+import { API_ENDPOINTS, ApiClient } from "./apiClient";
 import { logEvents } from "./logEvents";
 import { logger } from "./logger";
+
+const parseInstance = (data: {
+  uuid: string;
+  task_id: string;
+  task_name: string;
+  status: string;
+  url: string;
+  created_at: string;
+  expires_at: string;
+  time_remaining_ms: number;
+  extensions_count?: number;
+}): Instance => ({
+  uuid: data.uuid,
+  taskId: data.task_id,
+  taskName: data.task_name,
+  status: data.status === "running" ? "active" : (data.status as Instance["status"]),
+  url: data.url,
+  createdAt: new Date(data.created_at),
+  expiresAt: new Date(data.expires_at),
+  timeRemainingMs: data.time_remaining_ms,
+  extensionsCount: data.extensions_count ?? 0,
+});
 
 export const getInstanceStatus = async (
   userId: string,
 ): Promise<Instance | null> => {
-  logger.info(logEvents.instanceStatus, { userId, active: false });
-  // TODO: Call backend endpoint when available
-  return null;
+  const response = await ApiClient.get<{
+    status: string;
+    has_active_instance: boolean;
+    instance: Parameters<typeof parseInstance>[0] | null;
+  }>(API_ENDPOINTS.instanceStatus);
+
+  logger.info(logEvents.instanceStatus, { userId, active: response.has_active_instance });
+  return response.has_active_instance && response.instance ? parseInstance(response.instance) : null;
 };
 
 export const deployInstance = async (
@@ -16,21 +44,14 @@ export const deployInstance = async (
 ): Promise<Instance> => {
   logger.info(logEvents.instanceDeployAttempt, { userId, taskId });
 
-  // Mock deployment for now
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
+  const response = await ApiClient.post<{
+    status: string;
+    instance: Parameters<typeof parseInstance>[0];
+  }>(API_ENDPOINTS.instanceDeploy, {
+    task_id: taskId,
+  });
 
-  const instance: Instance = {
-    uuid: `mock-${Math.random().toString(36).substring(7)}`,
-    taskId,
-    taskName: "Mock Task",
-    status: "active",
-    url: "https://instance.local",
-    createdAt: now,
-    expiresAt,
-    extensionsCount: 0,
-    timeRemainingMs: 60 * 60 * 1000,
-  };
+  const instance = parseInstance(response.instance);
 
   logger.info(logEvents.instanceDeploySuccess, {
     userId,
@@ -43,10 +64,37 @@ export const deployInstance = async (
 
 export const extendInstance = async (userId: string): Promise<Instance> => {
   logger.info(logEvents.instanceExtendAttempt, { userId });
-  throw new Error("Extension not yet implemented");
+
+  const response = await ApiClient.post<{
+    status: string;
+    instance: Parameters<typeof parseInstance>[0];
+    new_expires_at: string;
+    new_time_remaining_ms: number;
+  }>(API_ENDPOINTS.instanceExtend, {});
+
+  const instance = parseInstance(response.instance);
+
+  logger.info(logEvents.instanceExtendSuccess, {
+    userId,
+    instanceId: instance.uuid,
+  });
+
+  return instance;
 };
 
 export const terminateInstance = async (userId: string): Promise<string> => {
   logger.info(logEvents.instanceTerminateAttempt, { userId });
-  throw new Error("Termination not yet implemented");
+
+  const response = await ApiClient.delete<{
+    status: string;
+    message: string;
+    instance_uuid: string;
+  }>(API_ENDPOINTS.instanceTerminate);
+
+  logger.info(logEvents.instanceTerminateSuccess, {
+    userId,
+    instanceId: response.instance_uuid,
+  });
+
+  return response.instance_uuid;
 };

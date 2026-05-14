@@ -38,9 +38,9 @@ import {
 import { Progress } from "../components/ui/progress";
 
 const DIFFICULTY_STYLES: Record<Task["difficulty"], string> = {
-  Beginner: "bg-green-900/30 text-green-400 border-green-800",
-  Intermediate: "bg-yellow-900/30 text-yellow-400 border-yellow-800",
-  Advanced: "bg-red-900/30 text-red-400 border-red-800",
+  Easy: "bg-green-900/30 text-green-400 border-green-800",
+  Medium: "bg-yellow-900/30 text-yellow-400 border-yellow-800",
+  Hard: "bg-red-900/30 text-red-400 border-red-800",
 };
 
 const ICONS_BY_TASK: Array<[RegExp, typeof Database]> = [

@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from tortoise.contrib.fastapi import register_tortoise
 
+from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
+from app.routers.instance import router as instance_router
 from app.utils.logger import setup_logging
 from config import _csv, settings
 
@@ -20,6 +22,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(instance_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/v1/health")

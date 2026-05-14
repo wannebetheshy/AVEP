@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshInstance = useCallback(async () => {
-    if (!session) {
+    if (!session || session.user.role === "admin") {
       setInstance(null);
       return;
     }
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true;
 
     const load = async () => {
-      if (!session) {
+      if (!session || session.user.role === "admin") {
         setInstance(null);
         return;
       }

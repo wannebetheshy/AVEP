@@ -50,7 +50,90 @@ class ErrorResponse(BaseModel):
     code: str
 
 
+class MessageResponse(BaseModel):
+    status: str = "success"
+    message: str
+
+
 class AdminIdentity(BaseModel):
     id: str = "admin"
     username: str = "admin"
     role: str = ROLE_ADMIN
+
+
+class TaskResponse(BaseModel):
+    id: str
+    name: str
+    description: str
+    difficulty: str
+    category: str
+
+
+class TaskListResponse(BaseModel):
+    status: str = "success"
+    tasks: list[TaskResponse]
+
+
+class InstanceResponse(BaseModel):
+    uuid: str
+    task_id: str
+    task_name: str
+    status: str
+    url: str
+    created_at: str
+    expires_at: str
+    time_remaining_ms: int
+    extensions_count: int = 0
+
+
+class UserInstanceStatusResponse(BaseModel):
+    status: str = "success"
+    has_active_instance: bool
+    instance: InstanceResponse | None = None
+
+
+class DeployRequest(BaseModel):
+    task_id: str
+
+
+class DeployResponse(BaseModel):
+    status: str = "success"
+    instance: InstanceResponse
+
+
+class ExtendResponse(BaseModel):
+    status: str = "success"
+    instance: InstanceResponse
+    new_expires_at: str
+    new_time_remaining_ms: int
+
+
+class TerminateResponse(BaseModel):
+    status: str = "success"
+    message: str
+    instance_uuid: str
+
+
+class AdminInstanceResponse(BaseModel):
+    uuid: str
+    user_id: str
+    username: str
+    task_id: str
+    task_name: str
+    status: str
+    url: str
+    created_at: str
+    expires_at: str
+    time_remaining_ms: int
+    extensions_count: int = 0
+
+
+class AdminInstanceListResponse(BaseModel):
+    status: str = "success"
+    items: list[AdminInstanceResponse]
+
+
+class AdminTerminateResponse(BaseModel):
+    status: str = "success"
+    message: str
+    instance_uuid: str

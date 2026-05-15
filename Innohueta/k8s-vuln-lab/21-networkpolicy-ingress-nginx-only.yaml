@@ -1,0 +1,25 @@
+# Ingress: только от подов ingress-nginx (addon minikube). Снаружи трафик попадает
+# в ingress-контроллер, а не напрямую в уязвимые поды.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lab-ingress-from-ingress-nginx
+  namespace: vuln-lab
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: vuln-lab
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 3000
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8090

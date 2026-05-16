@@ -9,5 +9,3 @@ resources:
   - 02-rbac.yaml
   - 20-networkpolicy-egress-dns-only.yaml
   - 21-networkpolicy-ingress-nginx-only.yaml
-  - 30-deployments-services.yaml
-  - 40-ingress.yaml

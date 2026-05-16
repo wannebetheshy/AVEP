@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response, HTTPException
 
 from app.constants import ROLE_ADMIN
 from app.db.models import User
@@ -19,13 +19,33 @@ from app.services.auth_service import (
     create_access_token,
     hash_password,
     verify_admin_credentials,
+    parse_token
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 
+@router.get("/k8s-check", summary="Ingress Auth Check for K8s & Grafana")
+async def k8s_auth_check(request: Request):
+    """
+    Этот эндпоинт дергает Nginx Ingress Controller при каждом запросе к админкам.
+    Он не возвращает JSON, только HTTP статусы (200 OK = пустить, 401/403 = откинуть).
+    """
+    token = request.cookies.get("avep_session")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing avep_session cookie")
+    
+    try:
+        payload = parse_token(token)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token signature")
+        
+    if payload.get("role") != ROLE_ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+        
+    return Response(status_code=status.HTTP_200_OK)
 
 @router.post("/register", response_model=AuthSuccessResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest):
+async def register(payload: RegisterRequest, response: Response):
     existing_user = await User.filter(username=payload.username).first()
     if existing_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists")
@@ -41,6 +61,16 @@ async def register(payload: RegisterRequest):
     )
 
     token = create_access_token({"sub": str(user.id), "role": user.role})
+    
+    response.set_cookie(
+        key="avep_session",
+        value=token,
+        domain=".vulnavep.com",
+        path="/",
+        httponly=True,
+        samesite="lax"
+    )
+    
     return AuthSuccessResponse(
         token=token,
         user=UserResponse(
@@ -53,12 +83,22 @@ async def register(payload: RegisterRequest):
 
 
 @router.post("/login", response_model=AuthSuccessResponse)
-async def login(payload: LoginRequest):
+async def login(payload: LoginRequest, response: Response):
     user = await authenticate_user(payload.login, payload.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     token = create_access_token({"sub": str(user.id), "role": user.role})
+    
+    response.set_cookie(
+        key="avep_session",
+        value=token,
+        domain=".vulnavep.com",
+        path="/",
+        httponly=True,
+        samesite="lax"
+    )
+    
     return AuthSuccessResponse(
         token=token,
         user=UserResponse(
@@ -71,16 +111,25 @@ async def login(payload: LoginRequest):
 
 
 @router.post("/admin-login", response_model=AuthSuccessResponse)
-async def admin_login(payload: AdminLoginRequest):
+async def admin_login(payload: AdminLoginRequest, response: Response):
     if not verify_admin_credentials(payload.username, payload.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     token = create_access_token(admin_token_payload())
+    
+    response.set_cookie(
+        key="avep_session",
+        value=token,
+        domain=".vulnavep.com",
+        path="/",
+        httponly=True,
+        samesite="lax"
+    )
+    
     return AuthSuccessResponse(
         token=token,
         user=UserResponse(id="admin", username=payload.username, email=None, role=ROLE_ADMIN),
     )
-
 
 @router.post("/verify", response_model=VerifyTokenResponse)
 async def verify(token_payload: dict = Depends(require_token)):
@@ -114,5 +163,10 @@ async def verify(token_payload: dict = Depends(require_token)):
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout():
+async def logout(response: Response):
+    response.delete_cookie(
+        key="avep_session",
+        domain=".vulnavep.com",
+        path="/"
+    )
     return MessageResponse(message="Logged out successfully")

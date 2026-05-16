@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://vulnavep.com:8000";
 // If API_BASE_URL is an absolute URL (contains ://), append /api/v1
 // If it's a relative path (starts with /), use it as-is
 const getEndpoint = (path: string) => {
@@ -54,6 +54,7 @@ export class ApiClient {
   ): Promise<T> {
     const response = await fetch(url, {
       ...options,
+      credentials: "include",
       headers: {
         ...this.getHeaders(),
         ...(options.headers || {}),

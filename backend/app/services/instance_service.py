@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 
 from app.db.models import Instance, User
 from app.models.schemas import AdminInstanceResponse, InstanceResponse, TaskResponse
+from app.services.k8s_manager import deploy_k8s_instance, delete_k8s_instance
 
 TASK_CATALOG: dict[str, TaskResponse] = {
     "dvwa": TaskResponse(
@@ -93,13 +94,15 @@ async def deploy_instance_for_user(user: User, task_id: str) -> Instance:
 
     existing = await get_user_instance(str(user.id))
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already has an active instance",
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has an active instance")
 
     now = _now()
     instance_uuid = str(uuid4())
+    
+    # 1. Дергаем кластер Minikube
+    await deploy_k8s_instance(task_id, instance_uuid)
+
+    # 2. Пишем в БД
     instance = await Instance.create(
         uuid=instance_uuid,
         user=user,
@@ -137,10 +140,11 @@ async def terminate_user_instance(user_id: str) -> str:
     if not instance:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active instance not found")
 
+    await delete_k8s_instance(instance.uuid)
+
     instance_uuid = instance.uuid
     await instance.delete()
     return instance_uuid
-
 
 async def list_admin_instances() -> list[AdminInstanceResponse]:
     instances = await Instance.all().prefetch_related("user").order_by("-created_at")

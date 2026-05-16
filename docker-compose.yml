@@ -15,6 +15,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend:/app
+      - ~/.kube:/root/.kube:ro
+      - ~/.minikube:$HOME/.minikube:ro
     env_file:
       - ./.env
     ports:
@@ -31,6 +35,9 @@ services:
       interval: 30s
       timeout: 3s
       retries: 10
+    networks:
+      - default
+      - minikube
 
   frontend:
     build:
@@ -45,3 +52,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+networks:
+  minikube:
+    external: true
+    name: minikube

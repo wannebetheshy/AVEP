@@ -14,6 +14,18 @@ ${minikube ip} k8s.vulnavep.com grafana.vulnavep.com cb52db8f-2d13-40a4-aa9d-d6a
 
 Replace `${minikube ip}` with actual minikube ip.
 
+## Testing
+
+All tests are contained in `backend/tests` folder, to run tests the following commands are provided:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+cd backend
+pip install -r requirements.txt
+python -m pytest ./tests -v
+```
+
 ## Notes
 
 - The admin demo credentials shown on the login page are `admin` / `change-me`.

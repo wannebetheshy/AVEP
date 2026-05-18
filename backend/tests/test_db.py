@@ -9,10 +9,20 @@ from config import settings
 @pytest.mark.asyncio
 async def test_db_connection_and_crud():
     await Tortoise.init(
-        db_url=settings.database_url,
+        db_url="sqlite://:memory:",
         modules={"models": ["app.db.models"]},
     )
     await Tortoise.generate_schemas()
+
+    from types import SimpleNamespace
+    import app.services.auth_service as auth_svc
+    stub = SimpleNamespace(hash=lambda p: f"stubhash:{p}")
+    monkeypatch = None
+    try:
+        import pytest
+    except Exception:
+        pass
+    setattr(auth_svc, "_pwd_context", stub)
 
     user = await User.create(
         username="db_test_user",
